@@ -89,6 +89,15 @@ flowchart TB
     P2 --> S1
     S1 --> DB
     S2 --> DB
+
+    classDef product fill:#1f6feb26,stroke:#58a6ff,stroke-width:1px;
+    classDef service fill:#2da44e26,stroke:#3fb950,stroke-width:1px;
+    classDef store fill:#a371f726,stroke:#a371f7,stroke-width:1px;
+    class P1,P2 product;
+    class S1,S2 service;
+    class DB store;
+    style AppHosting fill:#1f6feb14,stroke:#58a6ff,stroke-width:1px;
+    style CloudRun fill:#2da44e14,stroke:#3fb950,stroke-width:1px;
 ```
 
 製品は複数存在し、いずれも共有の middle office を再利用する。製品を1つ追加するごとに App Hosting のバックエンドを1つ増やし、middle office は据え置く。
@@ -443,6 +452,9 @@ flowchart TB
     PL -.->|注入| J1
     IMP -.->|注入| J23
     CR -.->|注入| J5
+
+    style SP fill:#8b949e14,stroke:#8b949e,stroke-width:1px;
+    style JAM fill:#1f6feb14,stroke:#58a6ff,stroke-width:1px;
 ```
 
 | Superpowers のフェーズ | 方針 |
@@ -469,6 +481,9 @@ flowchart TB
       C -.->|どちらか一方| D2
     end
     L1 --> L2
+
+    style L1 fill:#1f6feb14,stroke:#58a6ff,stroke-width:1px;
+    style L2 fill:#a371f714,stroke:#a371f7,stroke-width:1px;
 ```
 
 - 規律(JSDoc 契約優先 + Superpowers TDD)は常に併用する。jam の核心「コード前に JSDoc 契約を確定」はどの実装方法でも適用する。
