@@ -40,7 +40,7 @@
 - **回帰安全** — サイクルの完了条件「全テスト + 型検査が緑」により、以前緑だった挙動が壊れない性質(§2.2)。
 - **ヘルパー** — UI / Route Handler から抽出した純粋関数(framework 非依存・決定的)。`src/helper/` に置き、Jest 単体でテストする。
 - **Route Handler(BFF)** — `src/app/api/**/route.js`。共通サービスを呼ぶ薄い API 境界。endpoint で検証する。
-- **Server Action** — `'use server'` を持つ関数。React のフォーム/クライアントから呼ぶ **UI のミューテーション手段**で、**UI を持つアプリにのみ存在する**(使うかは任意。既定の変更系統は Route Handler)。`src/action/` に集約し、関数として Jest(共通サービスの HTTP は MSW で mock)で検証する(純粋部はヘルパーへ抽出)。
+- **Server Action** — `'use server'` を持つ関数。React のフォーム/クライアントから呼ぶ **UI のミューテーション手段**で、**製品(front office)にのみ存在する**(使うかは任意。既定の変更系統は Route Handler)。`src/action/` に集約し、関数として Jest(共通サービスの HTTP は MSW で mock)で検証する(純粋部はヘルパーへ抽出)。
 - **共通サービス(middle office)** — 複数の製品(front office)から再利用される共有業務能力層。Next.js API 専用のマイクロサービス群を1つの別リポ(npm workspaces モノレポ)に集約する(構成・配置は §1.4)。製品の Route Handler(back office)経由で呼ぶ。本リポからはテストで差し替える(MSW / stub)。jam-dev は当該モノレポにも同様に適用する。
 - **endpoint** — Route Handler(API)を Playwright `request` で検証するテスト(ブラウザ無し・共通サービスは dev サーバで stub)。配置は §3.4。
 - **end2end** — UI / ブラウザフローを Playwright で検証するテスト。配置は §3.4。
@@ -163,7 +163,7 @@ flowchart TD
 | **1 Plan(契約)** | 対象 `.js / .jsx`(ヘルパー等の `.js` とコンポーネントの `.jsx`)を作成し、多層 JSDoc(module / class / function / method / component props / `@typedef`)と構造プレースホルダ(本体は `throw new Error('not implemented')`)を直接記入する。`tsc -p jsconfig.json --noEmit` で型契約を検証する | 🚧 承認 |
 | **2 Test(red)** | JSDoc 契約に対し Jest を記述する。`it.todo` で検証項目を列挙 → 🚧承認 → 断言を埋めて **red** にする(§3.3) | 🚧 承認(it.todo) |
 | **3 Implement(green)** | スタブ本体をモジュール単位で実装し、`jest` と `tsc` を緑にする(並列加速は §5) | — |
-| **4 受入(endpoint・end2end)** | Playwright で endpoint と end2end を**受入テスト**として追加する(実装後・Next.js dev サーバ〔共通サービスは env で stub〕に対して実行)。全 Route Handler に endpoint、UI を持つリポでは全ルート(page/layout)に end2end を課す | — |
+| **4 受入(endpoint・end2end)** | Playwright で endpoint と end2end を**受入テスト**として追加する(実装後・Next.js dev サーバ〔共通サービスは env で stub〕に対して実行)。全 Route Handler(back office)に endpoint、製品(front office)では全ルート(page/layout)に end2end を課す | — |
 | **5 Finish** | レビューし、未実装スタブが残っていないことを確認する | — |
 
 ### 2.1 契約の検証
@@ -362,7 +362,7 @@ src/end2end/checkout.spec.js    # end2end(ブラウザフロー)
 
 ### 3.6 コード種別ごとのテスト
 
-契約優先は全コードに適用する。型契約(JSDoc)は `tsc` が全コードで検査する。振る舞いテストは種別ごとに対応する:**ヘルパーと Server Action は Jest、API(Route Handler)は endpoint、UI(コンポーネント・page・layout)は end2end**(endpoint・end2end は Playwright)。**test-first は Jest(ヘルパー・Server Action)に限り、endpoint・end2end は実装後の受入テストとする**(§2.1)。**UI を持つリポでは全 page / layout を例外なく end2end の対象とする**(各ルート(page)に end2end を課し、layout は配下ルート経由で必ず検証する。API 専用リポは UI が無く endpoint と Jest のみ)。RTL / jsdom によるコンポーネント単体テストは**使わない**(end2end と重複し、async Server Component の制約も避けられる)。
+契約優先は全コードに適用する。型契約(JSDoc)は `tsc` が全コードで検査する。振る舞いテストは種別ごとに対応する:**ヘルパーと Server Action は Jest、API(Route Handler)は endpoint、UI(コンポーネント・page・layout)は end2end**(endpoint・end2end は Playwright)。**test-first は Jest(ヘルパー・Server Action)に限り、endpoint・end2end は実装後の受入テストとする**(§2.1)。**製品(front office)では全 page / layout を例外なく end2end の対象とする**(各ルート(page)に end2end を課し、layout は配下ルート経由で必ず検証する。middle office(共通サービス)は UI が無く endpoint と Jest のみ)。RTL / jsdom によるコンポーネント単体テストは**使わない**(end2end と重複し、async Server Component の制約も避けられる)。
 
 | コード種別 | 型契約 | 振る舞いテスト |
 |---|---|---|
@@ -387,7 +387,7 @@ export function OrderCard({ order, onCancel }) {
 
 - UI 用の追加テスト依存は不要とする。型のため `@types/react` と `jsconfig.json` の `jsx`(Next.js が設定)を要する。
 
-Server Action(使う場合)は `src/action/checkout.js` のように薄い関数として書き、純粋部はヘルパーへ出す。**UI から呼ばれる手段**である:例えば checkout ページの `<form action={checkout}>` が `checkout()` を呼ぶ。フォーム(UI)が無ければ呼び出し元が無いので、Server Action は UI を持つアプリにのみ存在する(画面の無い共通サービスは `/api/...` の Route Handler で公開する)。共通サービスは `fetch` で直接呼び、テスト(`src/action/checkout.test.js`)は end2end ではなく**関数として Jest** で行い、共通サービスへの HTTP を **MSW** で mock する。
+Server Action(使う場合)は `src/action/checkout.js` のように薄い関数として書き、純粋部はヘルパーへ出す。**UI から呼ばれる手段**である:例えば checkout ページの `<form action={checkout}>` が `checkout()` を呼ぶ。フォーム(UI)が無ければ呼び出し元が無いので、Server Action は製品(front office)にのみ存在する(画面を持たない middle office は `/api/...` の Route Handler で公開する)。共通サービスは `fetch` で直接呼び、テスト(`src/action/checkout.test.js`)は end2end ではなく**関数として Jest** で行い、共通サービスへの HTTP を **MSW** で mock する。
 
 ```js
 // @ts-check
